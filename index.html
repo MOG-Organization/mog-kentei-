@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MOGのホワ鯖検定</title>
+<title>MOGホワ鯖検定</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
@@ -84,8 +84,8 @@ h1{
 </head>
 <body>
 <div class="wrap">
-  <h1>MOGのホワ鯖検定</h1>
-  <p class="lead">全16問・3択。正解するほど溶鉱炉が温まります。最後に領主タイプを診断します。</p>
+  <h1>MOGホワ鯖検定</h1>
+  <p class="lead">毎回ランダムに10問・3択。正解するほど溶鉱炉が温まります。最後に領主タイプを診断します。</p>
 
   <div class="thermo" aria-hidden="true">
     <div class="bar"><div class="fill" id="fill"></div></div>
@@ -96,7 +96,7 @@ h1{
 </div>
 
 <script>
-const QUESTIONS = [
+const POOL = [
   {q:"街の中心にあって、住民を暖めている建物は？",
    a:"溶鉱炉", w:"病院", j:"巨大こたつ",
    ex:"溶鉱炉は街の心臓部で、住民に熱を届けます。アップグレードで暖房範囲も広がります。",
@@ -157,6 +157,10 @@ const QUESTIONS = [
    opts:[{t:"歓迎のあいさつをする",k:"meishu",res:"最初の一言で居心地が決まります。ナイス。"},
          {t:"おすすめ英雄について熱く語る",k:"genba",res:"熱意は伝わります。語りすぎには注意。"},
          {t:"とりあえず集結に誘う",k:"totsugeki",res:"実戦で仲良くなるタイプ。嫌いじゃない。"}]},
+  {q:"MOGの前身の同盟の名前は？",
+   a:"IGU", w:"GOM", j:"いぐ商店",
+   ex:"MOGの前身はIGUです。この問題に正解できたあなたは、MOGの歴史を知る古参かもしれません。",
+   src:"MOGメンバー"},
   {q:"官職（大臣）に申請できるのは、溶鉱炉レベルいくつから？",
    a:"16", w:"30", j:"課金額で決まる",
    ex:"溶鉱炉レベル16から申請でき、申請は24時間有効。執政官か内務大臣が審査します。",
@@ -172,25 +176,24 @@ const TYPES = {
   mypace:{name:"マイペースな採集家タイプ", desc:"戦いのことはまあいいか、と自分のペースを守るあなた。黙々と資源を集めて街を育てる姿は、同盟の縁の下の力持ちです。", role:"資源集め・同盟への寄付", aisyou:"頼れる現場主義タイプ"}
 };
 
-function judgeBase(score,jokes,wrongs){
-  if(jokes>=4) return TYPES.mood;
-  if(score>=8) return jokes===0 ? TYPES.sanbou : TYPES.meishu;
-  if(score>=5) return jokes>=2 ? TYPES.meishu : TYPES.genba;
-  if(wrongs>=jokes) return TYPES.totsugeki;
-  return TYPES.mypace;
-}
-
 let idx=0, score=0, jokes=0, wrongs=0, picks={};
-const QUIZ_COUNT=QUESTIONS.filter(q=>!q.open).length;
+const TOTAL=10, OPEN_COUNT=3;
+let QUESTIONS=[], QUIZ_COUNT=0;
 const stage=document.getElementById("stage");
 const fill=document.getElementById("fill");
 const temp=document.getElementById("temp");
 
 function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[a[i],a[k]]=[a[k],a[i]];}return a;}
+function draw(){
+  const quiz=shuffle(POOL.filter(q=>!q.open)).slice(0,TOTAL-OPEN_COUNT);
+  const open=shuffle(POOL.filter(q=>q.open)).slice(0,OPEN_COUNT);
+  QUESTIONS=shuffle(quiz.concat(open));
+  QUIZ_COUNT=quiz.length;
+}
 function heat(){
-  const pct=score/QUIZ_COUNT*100;
+  const pct=QUIZ_COUNT?score/QUIZ_COUNT*100:0;
   fill.style.width=pct+"%";
-  temp.textContent=Math.round(-40+score*6)+"℃";
+  temp.textContent=Math.round(-40+(QUIZ_COUNT?score/QUIZ_COUNT:0)*60)+"℃";
 }
 
 function renderQuestion(){
@@ -238,6 +241,15 @@ function answer(btn){
     `${verdict}<p class="explain">${Q.ex}</p><p class="src">出典：${Q.src}</p>`);
 }
 
+function judgeBase(score,jokes,wrongs){
+  const r=score/QUIZ_COUNT;
+  if(jokes>=3) return TYPES.mood;
+  if(r>=0.8) return jokes===0 ? TYPES.sanbou : TYPES.meishu;
+  if(r>=0.5) return jokes>=2 ? TYPES.meishu : TYPES.genba;
+  if(wrongs>=jokes) return TYPES.totsugeki;
+  return TYPES.mypace;
+}
+
 function judge(){
   const base=judgeBase(score,jokes,wrongs);
   const pts={};
@@ -251,7 +263,7 @@ function judge(){
 
 function renderResult(){
   const T=judge();
-  const shareText=`MOGのホワ鯖検定の結果：${score}/${QUIZ_COUNT}問正解、あなたは「${T.name}」`;
+  const shareText=`MOGホワ鯖検定の結果：${score}/${QUIZ_COUNT}問正解、あなたは「${T.name}」`;
   stage.innerHTML=`
     <section class="cert" aria-live="polite">
       <p class="stamp">あなたの領主タイプは</p>
@@ -274,7 +286,7 @@ function renderResult(){
   });
 }
 
-function start(){idx=0;score=0;jokes=0;wrongs=0;picks={};heat();renderQuestion();}
+function start(){draw();idx=0;score=0;jokes=0;wrongs=0;picks={};heat();renderQuestion();}
 start();
 </script>
 </body>
