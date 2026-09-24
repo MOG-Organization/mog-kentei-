@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MOGのホワ鯖検定</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EFF3; --paper:#F7FBFD; --ink:#1B2A41; --steel:#5C7185; --frost:#B9D2DE;
+  --ember:#F08A24; --ember-deep:#C4561A; --ok:#2E7D5B; --ng:#B23A3A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A26; --paper:#172636; --ink:#E4EEF4; --steel:#94A8BA; --frost:#2C4256;
+    --ember:#F59A3C; --ember-deep:#F2B872; --ok:#5DC495; --ng:#EE7B7B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A26; --paper:#172636; --ink:#E4EEF4; --steel:#94A8BA; --frost:#2C4256;
+  --ember:#F59A3C; --ember-deep:#F2B872; --ok:#5DC495; --ng:#EE7B7B;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+  font-weight:500; line-height:1.7;
+}
+.wrap{max-width:620px; margin:0 auto; padding:28px 18px 48px}
+h1{
+  font-family:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif; font-weight:400;
+  font-size:clamp(2.6rem,11vw,4.2rem); line-height:1.05; margin:0; letter-spacing:.02em;
+}
+.lead{color:var(--steel); margin:10px 0 22px}
+
+/* 温度計：正解するほど溶鉱炉が温まる */
+.thermo{display:flex; align-items:center; gap:12px; margin-bottom:22px}
+.bar{flex:1; height:14px; border-radius:7px; background:var(--frost); overflow:hidden}
+.fill{height:100%; width:0; background:linear-gradient(90deg,var(--ember),var(--ember-deep)); transition:width .5s ease}
+.temp{font-family:"Dela Gothic One",sans-serif; font-size:1.1rem; min-width:4.5em; text-align:right}
+
+.card{background:var(--paper); border:2px solid var(--frost); border-radius:18px; padding:22px 20px}
+.qno{color:var(--steel); font-size:.95rem; margin:0 0 6px}
+.qtext{font-size:1.25rem; font-weight:700; margin:0 0 18px; line-height:1.55}
+.choices{display:grid; gap:10px}
+.choice{
+  font:inherit; font-weight:700; text-align:left; color:var(--ink);
+  background:transparent; border:2px solid var(--frost); border-radius:12px;
+  padding:13px 15px; cursor:pointer;
+}
+.choice:hover:not(:disabled){border-color:var(--ember)}
+.choice:focus-visible,.btn:focus-visible{outline:3px solid var(--ember); outline-offset:2px}
+.choice:disabled{cursor:default}
+.choice.right{border-color:var(--ok); color:var(--ok)}
+.choice.wrong{border-color:var(--ng); color:var(--ng)}
+.feedback{margin-top:16px; display:none}
+.feedback.show{display:block}
+.verdict{font-weight:700; margin:0 0 4px}
+.verdict.r{color:var(--ok)} .verdict.w{color:var(--ng)} .verdict.o{color:var(--ember-deep)}
+.choice.picked{border-color:var(--ember); color:var(--ember-deep)}
+.explain{margin:0; color:var(--ink)}
+.src{margin:6px 0 0; font-size:.85rem; color:var(--steel)}
+.btn{
+  font:inherit; font-weight:700; margin-top:18px; width:100%;
+  background:var(--ink); color:var(--paper); border:none; border-radius:12px; padding:14px; cursor:pointer;
+}
+
+/* 認定証 */
+.cert{text-align:center; padding:30px 22px; border:3px double var(--ember); border-radius:18px; background:var(--paper)}
+.cert .stamp{font-family:"Dela Gothic One",sans-serif; color:var(--ember-deep); font-size:1rem; margin:0}
+.cert .rank{font-family:"Dela Gothic One",sans-serif; font-weight:400; font-size:clamp(1.7rem,7vw,2.4rem); line-height:1.25; margin:12px 0}
+.cert .score{font-size:1.1rem; margin:0 0 14px}
+.cert .comment{text-align:left; margin:0 0 10px}
+.meta{text-align:left; margin:0; display:grid; grid-template-columns:auto 1fr; gap:4px 14px}
+.meta dt{color:var(--steel)} .meta dd{margin:0; font-weight:700}
+.share{margin-top:16px; font-size:.9rem; color:var(--steel); text-align:center; min-height:1.4em}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MOGのホワ鯖検定</h1>
+  <p class="lead">全16問・3択。正解するほど溶鉱炉が温まります。最後に領主タイプを診断します。</p>
+
+  <div class="thermo" aria-hidden="true">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="temp" id="temp">-40℃</div>
+  </div>
+
+  <main id="stage"></main>
+</div>
+
+<script>
+const QUESTIONS = [
+  {q:"街の中心にあって、住民を暖めている建物は？",
+   a:"溶鉱炉", w:"病院", j:"巨大こたつ",
+   ex:"溶鉱炉は街の心臓部で、住民に熱を届けます。アップグレードで暖房範囲も広がります。",
+   src:"BlueStacks 初心者ガイド"},
+  {q:"兵種の相性で、盾兵が有利に戦えるのは？",
+   a:"槍兵", w:"弓兵", j:"雪だるま",
+   ex:"相性は、盾兵→槍兵→弓兵→盾兵のじゃんけん関係です。弓兵には逆に不利です。",
+   src:"BlueStacks 兵種ガイド"},
+  {open:true, q:"集結の号令がかかった！そのときあなたは？",
+   opts:[{t:"即参加。考えるのは後",k:"totsugeki",res:"その瞬発力、集結リーダーが一番ありがたいやつです。"},
+         {t:"兵種の配分を確認してから参加",k:"sanbou",res:"慎重派。枠が埋まる前に間に合えば完璧です。"},
+         {t:"寝てた",k:"mypace",res:"起きたら終わってた、はホワ鯖あるあるです。"}]},
+  {q:"現行ルールの王城戦で、勝利が確定する連続占領時間は？",
+   a:"2.5時間", w:"3時間", j:"執政官がおやつを食べ終わるまで",
+   ex:"以前は6時間中3時間でしたが、現在は5時間中2.5時間の連続占領に短縮されています。3時間は旧ルールです。",
+   src:"heaven-guardian.com / wostools.net"},
+  {q:"MOGのくにの血液型は？",
+   a:"B型", w:"A型", j:"溶鉱炉型",
+   ex:"くにはB型です。これを知っていれば、あなたもMOGの一員です。",
+   src:"くに本人"},
+  {q:"王城と砲台を同じ同盟が占領しているとき、砲台はどうなる？",
+   a:"王城を攻撃しない", w:"王城を攻撃する", j:"祝いの花火を打ち上げる",
+   ex:"同じチームが王城と砲台を同時に占領していれば、砲台はそのチームを攻撃しません。",
+   src:"公式ヘルプセンター「Castle Battle」"},
+  {q:"砲台は、占領されている時間が長くなるとどうなる？",
+   a:"攻撃の間隔が短くなる", w:"攻撃が弱くなる", j:"眠くなって攻撃をサボる",
+   ex:"砲台は占領時間が長いほど攻撃間隔が短くなり、王城側へのプレッシャーが強まります。",
+   src:"公式ヘルプセンター「Castle Battle」"},
+  {open:true, q:"同盟チャットが静まり返っている。あなたはどうする？",
+   opts:[{t:"スタンプを連打して空気を温める",k:"mood",res:"溶鉱炉より先にチャットを温めるタイプ。"},
+         {t:"次のイベントの予定を投稿する",k:"meishu",res:"さりげなく場を動かす、盟主の動きです。"},
+         {t:"静かなのもいいよね、と見守る",k:"mypace",res:"平和なステならではの贅沢な時間です。"}]},
+  {q:"執政官の任期はどれくらい？",
+   a:"14日間", w:"7日間", j:"飽きるまで",
+   ex:"執政官になると14日間のスキンが2つもらえ、これは任期と同じ長さです。",
+   src:"whiteoutsurvival.wiki「Sunfire Castle」"},
+  {q:"王城戦の1時間前からテレポートすると、何が起きる？",
+   a:"シールドが解除される", w:"兵力が2倍になる", j:"城が雪に埋もれる",
+   ex:"開戦1時間前から終了まではテレポートできますが、その時点でシールドが外れます。",
+   src:"heaven-guardian.com"},
+  {q:"MOGのくにの出身地は？",
+   a:"新潟", w:"北海道", j:"雪原のど真ん中",
+   ex:"くには新潟出身です。雪国育ちなので、ホワ鯖の寒さにも強い…かもしれません。",
+   src:"くに本人"},
+  {q:"王城戦の個人ポイントのうち「損耗ポイント」は何で決まる？",
+   a:"重傷・損失した自分の兵", w:"倒した野獣の数", j:"同盟チャットの発言数",
+   ex:"占領ポイントは占領した兵力、損耗ポイントは自分の重傷・損失した兵で決まります。",
+   src:"whiteoutsurvival.wiki「Sunfire Castle」"},
+  {open:true, q:"王城戦の前日、あなたがしていることは？",
+   opts:[{t:"病院を空にして、治療加速を数える",k:"genba",res:"当日に一番差がつく準備。現場を知っていますね。"},
+         {t:"作戦メモを作ってみんなに共有する",k:"sanbou",res:"そのメモ、幹部チャットで重宝されます。"},
+         {t:"当日に貼るネタ画像を用意する",k:"mood",res:"戦場に笑いを持ち込む準備も立派な戦略です。"}]},
+  {q:"SvSの戦闘フェーズで、集結のポイント対象を判定する溶鉱炉レベルは誰のもの？",
+   a:"集結リーダー", w:"参加者で一番低い人", j:"盟主のその日の気分",
+   ex:"集結では集結リーダーの溶鉱炉レベルが基準になり、参加者は誰でもポイント対象として参加できます。",
+   src:"One Chilled Gamer SvSガイド"},
+  {open:true, q:"新しいメンバーが同盟に入ってきた！まず何をする？",
+   opts:[{t:"歓迎のあいさつをする",k:"meishu",res:"最初の一言で居心地が決まります。ナイス。"},
+         {t:"おすすめ英雄について熱く語る",k:"genba",res:"熱意は伝わります。語りすぎには注意。"},
+         {t:"とりあえず集結に誘う",k:"totsugeki",res:"実戦で仲良くなるタイプ。嫌いじゃない。"}]},
+  {q:"官職（大臣）に申請できるのは、溶鉱炉レベルいくつから？",
+   a:"16", w:"30", j:"課金額で決まる",
+   ex:"溶鉱炉レベル16から申請でき、申請は24時間有効。執政官か内務大臣が審査します。",
+   src:"heaven-guardian.com"},
+];
+
+const TYPES = {
+  sanbou:{name:"冷静沈着な参謀タイプ", desc:"ネタには目もくれず、正確な知識で答えを選ぶあなた。作戦会議では誰よりも仕様に詳しく、みんなに頼られる存在です。ただ、たまには肩の力を抜いてボケてもいいかも。", role:"作戦立案・王城戦の指揮", aisyou:"ムードメーカータイプ"},
+  meishu:{name:"余裕たっぷりの盟主タイプ", desc:"知識はしっかりあるのに、ネタにもちゃんと乗れるあなた。真面目さと遊び心のバランスがよく、自然と人が集まってきます。", role:"同盟のまとめ役", aisyou:"参謀タイプ"},
+  genba:{name:"頼れる現場主義タイプ", desc:"細かい仕様より、実戦で覚えるあなた。知識は十分で、いざという時は真っ先に集結に参加してくれる頼もしい存在です。", role:"集結の主力・砲台の守り", aisyou:"参謀タイプ"},
+  mood:{name:"同盟のムードメーカータイプ", desc:"ネタ選択肢を見ると押さずにはいられないあなた。正解よりも笑いを取りにいく姿勢は、殺伐とした戦場に欠かせません。同盟チャットが静かなら、それはあなたの出番です。", role:"同盟チャットの盛り上げ役", aisyou:"余裕たっぷりの盟主タイプ"},
+  totsugeki:{name:"勢いで突っ込む特攻隊長タイプ", desc:"迷ったらとりあえず押すあなた。惜しい選択肢に吸い込まれがちですが、その行動力は本物です。集結の号令がかかったら、誰よりも早く出撃していそう。", role:"先陣を切る集結参加", aisyou:"冷静沈着な参謀タイプ"},
+  mypace:{name:"マイペースな採集家タイプ", desc:"戦いのことはまあいいか、と自分のペースを守るあなた。黙々と資源を集めて街を育てる姿は、同盟の縁の下の力持ちです。", role:"資源集め・同盟への寄付", aisyou:"頼れる現場主義タイプ"}
+};
+
+function judgeBase(score,jokes,wrongs){
+  if(jokes>=4) return TYPES.mood;
+  if(score>=8) return jokes===0 ? TYPES.sanbou : TYPES.meishu;
+  if(score>=5) return jokes>=2 ? TYPES.meishu : TYPES.genba;
+  if(wrongs>=jokes) return TYPES.totsugeki;
+  return TYPES.mypace;
+}
+
+let idx=0, score=0, jokes=0, wrongs=0, picks={};
+const QUIZ_COUNT=QUESTIONS.filter(q=>!q.open).length;
+const stage=document.getElementById("stage");
+const fill=document.getElementById("fill");
+const temp=document.getElementById("temp");
+
+function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[a[i],a[k]]=[a[k],a[i]];}return a;}
+function heat(){
+  const pct=score/QUIZ_COUNT*100;
+  fill.style.width=pct+"%";
+  temp.textContent=Math.round(-40+score*6)+"℃";
+}
+
+function renderQuestion(){
+  const Q=QUESTIONS[idx];
+  const opts = Q.open ? shuffle(Q.opts) : shuffle([{t:Q.a,k:"a"},{t:Q.w,k:"w"},{t:Q.j,k:"j"}]);
+  stage.innerHTML=`
+    <section class="card" aria-live="polite">
+      <p class="qno">第${idx+1}問 / ${QUESTIONS.length}</p>
+      <p class="qtext">${Q.q}</p>
+      <div class="choices">${opts.map((o,i)=>`<button class="choice" data-k="${o.k}" data-i="${i}">${o.t}</button>`).join("")}</div>
+      <div class="feedback" id="fb"></div>
+    </section>`;
+  stage.querySelectorAll(".choice").forEach(b=>b.addEventListener("click",()=>Q.open?answerOpen(b,opts):answer(b)));
+}
+
+function showNext(fb,html){
+  fb.innerHTML=html+`<button class="btn" id="next">${idx<QUESTIONS.length-1?"次の問題へ":"診断を見る"}</button>`;
+  fb.classList.add("show");
+  const next=document.getElementById("next");
+  next.focus();
+  next.addEventListener("click",()=>{idx++; idx<QUESTIONS.length?renderQuestion():renderResult();});
+}
+
+function answerOpen(btn,opts){
+  const o=opts[+btn.dataset.i];
+  picks[o.k]=(picks[o.k]||0)+1;
+  stage.querySelectorAll(".choice").forEach(b=>b.disabled=true);
+  btn.classList.add("picked");
+  showNext(document.getElementById("fb"),
+    `<p class="verdict o">実はこの問題、正解はありません！</p><p class="explain">${o.res}</p><p class="src">あなたの答えは診断に使われます。</p>`);
+}
+
+function answer(btn){
+  const Q=QUESTIONS[idx], k=btn.dataset.k;
+  stage.querySelectorAll(".choice").forEach(b=>{
+    b.disabled=true;
+    if(b.dataset.k==="a") b.classList.add("right");
+  });
+  if(k==="a"){score++;} else {btn.classList.add("wrong"); if(k==="j") jokes++; else wrongs++;}
+  heat();
+  const verdict = k==="a" ? `<p class="verdict r">正解！溶鉱炉が少し温まった。</p>`
+    : k==="j" ? `<p class="verdict w">ボケてる場合じゃない！</p>`
+    : `<p class="verdict w">惜しい、ハズレ。</p>`;
+  showNext(document.getElementById("fb"),
+    `${verdict}<p class="explain">${Q.ex}</p><p class="src">出典：${Q.src}</p>`);
+}
+
+function judge(){
+  const base=judgeBase(score,jokes,wrongs);
+  const pts={};
+  for(const key in TYPES) pts[key]=(picks[key]||0);
+  const baseKey=Object.keys(TYPES).find(k=>TYPES[k]===base);
+  pts[baseKey]+=2;
+  let best=baseKey;
+  for(const key in pts) if(pts[key]>pts[best]) best=key;
+  return TYPES[best];
+}
+
+function renderResult(){
+  const T=judge();
+  const shareText=`MOGのホワ鯖検定の結果：${score}/${QUIZ_COUNT}問正解、あなたは「${T.name}」`;
+  stage.innerHTML=`
+    <section class="cert" aria-live="polite">
+      <p class="stamp">あなたの領主タイプは</p>
+      <p class="rank">${T.name}</p>
+      <p class="score">${score} / ${QUIZ_COUNT} 問正解（ネタ選択 ${jokes} 回）</p>
+      <p class="comment">${T.desc}</p>
+      <dl class="meta">
+        <dt>向いている役割</dt><dd>${T.role}</dd>
+        <dt>相性のいいタイプ</dt><dd>${T.aisyou}</dd>
+      </dl>
+      <button class="btn" id="copy">結果をコピー</button>
+      <button class="btn" id="retry">もう一度挑戦する</button>
+      <p class="share" id="share"></p>
+    </section>`;
+  document.getElementById("retry").addEventListener("click",start);
+  document.getElementById("copy").addEventListener("click",async()=>{
+    const s=document.getElementById("share");
+    try{await navigator.clipboard.writeText(shareText); s.textContent="コピーしました。同盟チャットに貼れます。";}
+    catch(e){s.textContent=shareText;}
+  });
+}
+
+function start(){idx=0;score=0;jokes=0;wrongs=0;picks={};heat();renderQuestion();}
+start();
+</script>
+</body>
+</html>
